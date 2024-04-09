@@ -1,0 +1,65 @@
+/* Let's import what we already have and decide how it changes based on if you need a degree*/
+--The relevant data for the jobs I care about
+WITH relevant_jobs AS (
+    SELECT 
+        job_id, 
+        job_title AS title,
+        company_dim.name AS company_name,
+        job_location AS location,
+        salary_year_avg AS salary,
+        job_posted_date AS date_posted,
+        job_no_degree_mention
+    FROM job_postings_fact AS jp
+    INNER JOIN company_dim ON jp.company_id = company_dim.company_id
+    WHERE 
+        job_title_short = 'Data Analyst' AND 
+        salary_year_avg IS NOT NULL AND
+        (job_location LIKE '%,%' OR
+        job_location = 'Anywhere')),
+
+
+--Total number of jobs for no degree
+
+total_jobs_no_degree AS (
+    SELECT 
+        COUNT(job_id) AS total_degree
+    FROM relevant_jobs
+    WHERE job_no_degree_mention IS TRUE),
+
+--The percent of times a job posting needs a certain skill for no degree
+no_degree_percents AS(
+    SELECT
+        ROUND((((CAST(COUNT(*) AS DECIMAL))/(SELECT total_degree FROM total_jobs_no_degree)) * 100),3) AS skill_percent_no_degree,
+        COALESCE(sd.skills, 'No Skill Listed') AS skill_name --Sets null values to no skill listed
+    FROM relevant_jobs AS rj
+    LEFT JOIN skills_job_dim AS sjd ON rj.job_id = sjd.job_id
+    LEFT JOIN skills_dim AS sd ON sjd.skill_id = sd.skill_id
+    WHERE job_no_degree_mention IS TRUE
+    GROUP BY skill_name),
+
+--Total number of jobs for degree
+
+total_jobs_degree AS (
+    SELECT 
+        COUNT(job_id) AS total_degree
+    FROM relevant_jobs
+    WHERE job_no_degree_mention IS FALSE),
+
+--The percent of times a job posting needs a certain skill for degree
+degree_percents AS(
+    SELECT
+        ROUND((((CAST(COUNT(*) AS DECIMAL))/(SELECT total_degree FROM total_jobs_degree)) * 100),3) AS skill_percent_degree,
+        COALESCE(sd.skills, 'No Skill Listed') AS skill_name
+    FROM relevant_jobs AS rj
+    LEFT JOIN skills_job_dim AS sjd ON rj.job_id = sjd.job_id
+    LEFT JOIN skills_dim AS sd ON sjd.skill_id = sd.skill_id
+    WHERE job_no_degree_mention IS FALSE
+    GROUP BY skill_name)
+
+SELECT
+    (COALESCE(skill_percent_degree, 0) - COALESCE(skill_percent_no_degree, 0)) AS difference,
+    degree_percents.skill_name
+FROM degree_percents
+LEFT JOIN no_degree_percents ON degree_percents.skill_name = no_degree_percents.skill_name
+ORDER BY difference DESC;
+/*This result demonstrates how much more/less likely a job will require skill. The higher the value the more likely it is you would need the skill if you got a degree and vice versa. The closer the result is to 0 the less difference it makes between if you do or dont have a degree*/
