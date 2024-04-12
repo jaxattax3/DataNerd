@@ -305,7 +305,7 @@ ORDER BY bradbury DESC
 Hopefully after that I can give you some better visuals on my project*/
 ```
 As I have clearly not yet mastered Tableau here is a visualization of my results
-![Final Results](Assets\Final_data.png)
+![Final Results](Assets/Final_data.png)
 
 
 ### Key Takeaways
